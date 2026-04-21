@@ -16,8 +16,11 @@ const incidents = [
 // affichage de la liste
 function rafraichirListe() 
 {
-    tbody.innerText = "";
+    while (tbody.firstChild) {
+    tbody.removeChild(tbody.firstChild);
+}
 
+    incidents.sort((a, b) => new Date(b.dateCreation) - new Date(a.dateCreation));
     incidents.forEach(incident => 
     {
         const tr = document.createElement("tr");
@@ -43,16 +46,49 @@ function rafraichirListe()
         tr.appendChild(tdDate);
 
         const tdActions = document.createElement("td");
-        tdActions.innerHTML = `
-            <a href='#' onclick="ouvrirDetails(${incident.id})">Details</a> | 
-            <a href='#' onclick="ouvrirModifier(${incident.id})">Modifier</a> |
-            <a href='#' onclick="ouvrirSupprimer(${incident.id})">Supprimer</a>`;
 
+        // Details
+        const lienDetails = document.createElement("a");
+        lienDetails.href = "#";
+        lienDetails.innerText = "Details";
+        lienDetails.addEventListener("click", () => ouvrirDetails(incident.id));
+
+        // separateur
+        const sep1 = document.createTextNode(" | ");
+
+        // Modifier
+        const lienModifier = document.createElement("a");
+        lienModifier.href = "#";
+        lienModifier.innerText = "Modifier";
+        lienModifier.addEventListener("click", () => ouvrirModifier(incident.id));
+
+        // separateur
+        const sep2 = document.createTextNode(" | ");
+
+        // Supprimer
+        const lienSupprimer = document.createElement("a");
+        lienSupprimer.href = "#";
+        lienSupprimer.innerText = "Supprimer";
+        lienSupprimer.addEventListener("click", () => ouvrirSupprimer(incident.id));
+
+        // append
+        tdActions.appendChild(lienDetails);
+        tdActions.appendChild(sep1);
+        tdActions.appendChild(lienModifier);
+        tdActions.appendChild(sep2);
+        tdActions.appendChild(lienSupprimer);
         tr.appendChild(tdActions);
         tbody.appendChild(tr);
     });
 
     compteur.innerText = incidents.length + " incident(s) au total";
+    const msgVide = document.getElementById("msg-vide");
+
+    if (incidents.length === 0) {
+        msgVide.classList.remove("d-none");
+    } else {
+        msgVide.classList.add("d-none");
+    }
     
 }
 
@@ -99,8 +135,11 @@ btnEnregistrerCreer.addEventListener("click", () =>
     }
     else
     {
-        const dernier = incidents[incidents.length - 1];
-        nouvelId = dernier.id +1;
+        let maxId = 0;
+        incidents.forEach(i => {
+            if (i.id > maxId) maxId = i.id;
+        });
+        const nouvelId = maxId + 1;
     }
 
     // construire l'object incident
@@ -133,28 +172,44 @@ const modalDetails = new bootstrap.Modal(modalDetailsEl);
 
 function badgeGravite(gravite)
 {
+    const span = document.createElement("span");
+
+    span.classList.add("badge", "rounded-pill");
+
     const map = {
         "Mineur":   "background-color: #ffc107; color: black;",
-        "Majeur":   "background-color: orange;  color: black;",
+        "Majeur":   "background-color: orange; color: black;",
         "Critique": "background-color: #dc3545; color: black;"
     };
-    return `<span class="badge rounded-pill" 
-                  style="${map[gravite] || 'background-color: grey;'} padding: 6px 12px; font-size: 0.85rem;">
-                ${gravite}
-            </span>`;
+
+    span.style = map[gravite] || "background-color: grey;";
+    span.style.padding = "6px 12px";
+    span.style.fontSize = "0.85rem";
+
+    span.innerText = gravite;
+
+    return span;
 }
 
 function badgeStatut(statut)
 {
+    const span = document.createElement("span");
+
+    span.classList.add("badge", "rounded-pill");
+
     const map = {
         "Ouvert":   "background-color: #198754; color: black;",
         "En cours": "background-color: #0d6efd; color: black;",
         "Résolu":   "background-color: #4fff46; color: black;"
     };
-    return `<span class="badge rounded-pill"
-                  style="${map[statut] || 'background-color: grey;'} padding: 6px 12px; font-size: 0.85rem;">
-                ${statut}
-            </span>`;
+
+    span.style = map[statut] || "background-color: grey;";
+    span.style.padding = "6px 12px";
+    span.style.fontSize = "0.85rem";
+
+    span.innerText = statut;
+
+    return span;
 }
 
 function ouvrirDetails(id)
@@ -165,8 +220,13 @@ function ouvrirDetails(id)
     document.getElementById("details-id").innerText = incident.id;
     document.getElementById("details-titre").innerText = incident.titre;
     document.getElementById("details-description").innerText = incident.description || "—";
-    document.getElementById("details-gravite").innerHTML = badgeGravite(incident.gravite);
-    document.getElementById("details-statut").innerHTML = badgeStatut(incident.statut);
+    const graviteEl = document.getElementById("details-gravite");
+    graviteEl.innerText = "";
+    graviteEl.appendChild(badgeGravite(incident.gravite));
+
+    const statutEl = document.getElementById("details-statut");
+    statutEl.innerText = "";
+    statutEl.appendChild(badgeStatut(incident.statut));
     document.getElementById("details-date").innerText = incident.dateCreation.replace("T", " ");
 
     modalDetails.show();
@@ -198,4 +258,62 @@ btnConfirmerSupprimer.addEventListener("click", () =>
 
     rafraichirListe();
     modalSupprimer.hide();
+});
+
+// Ouvrir modifier modal
+const modalModifierEl = document.getElementById("modal-modifier");
+const modalModifier = new bootstrap.Modal(modalModifierEl);
+
+function ouvrirModifier(id)
+{
+    const incident = incidents.find(i => i.id === id);
+
+    document.getElementById("modal-modifier-titre").innerText = `Modifier l'incident #${incident.id}`;
+
+    document.getElementById("modifier-id").value = incident.id;
+    document.getElementById("modifier-titre").value = incident.titre;
+    document.getElementById("modifier-description").value = incident.description;
+    document.getElementById("modifier-gravite").value = incident.gravite;
+    document.getElementById("modifier-statut").value = incident.statut;
+
+    modalModifier.show();
+}
+
+// enregistrer les modifications
+const btnEnregistrerModifier = document.getElementById("btn-enregistrer-modifier");
+
+btnEnregistrerModifier.addEventListener("click", () =>
+{
+    const id = parseInt(document.getElementById("modifier-id").value);
+    const titre = document.getElementById("modifier-titre").value.trim();
+    const description = document.getElementById("modifier-description").value.trim();
+    const gravite = document.getElementById("modifier-gravite").value;
+    const statut = document.getElementById("modifier-statut").value;
+
+    const erreur = document.getElementById("erreur-modifier");
+
+    // validation
+    if (titre.length < 3 || gravite === "" || statut === "")
+    {
+        erreur.innerText = "Veuillez remplir tous les champs obligatoires";
+        erreur.classList.remove("d-none");
+        return;
+    }
+
+    erreur.classList.add("d-none");
+
+    // trouver l'incident
+    const incident = incidents.find(i => i.id === id);
+
+    // modifier les valeurs (PAS la date)
+    incident.titre = titre;
+    incident.description = description;
+    incident.gravite = gravite;
+    incident.statut = statut;
+
+    // rafraichir
+    rafraichirListe();
+
+    // fermer modal
+    modalModifier.hide();
 });
